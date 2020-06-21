@@ -5,7 +5,6 @@ from chatterbot.trainers import ChatterBotCorpusTrainer
 from chatterbot.trainers import ListTrainer
 import string
 
-
 class BoyerMoore(object):
     """ Encapsulates pattern and associated Boyer-Moore preprocessing. """
 
@@ -40,7 +39,7 @@ class BoyerMoore(object):
         """ Return amount to shift in case where P matches T """
         return len(self.small_l_prime) - self.small_l_prime[1]
 
-# End Class Boyermoore Object
+# End Class Boyermoore
 
 def z_array(s):
     """ Use Z algorithm (Gusfield theorem 1.4.1) to preprocess s """
@@ -166,6 +165,7 @@ def dense_bad_char_tab(p, amap):
         nxt[amap[c]] = i+1
     return tab
 
+
 def boyer_moore(p, p_bm, t):
     """ Do Boyer-Moore matching """
     i = 0
@@ -185,19 +185,10 @@ def boyer_moore(p, p_bm, t):
             skip_gs = p_bm.match_skip()
             shift = max(shift, skip_gs)
         i += shift
-    
-    print(occurrences)
-
     return occurrences
-
 
 app = Flask(__name__)
 bot = ChatBot("Python-BOT")
-# trainer = ListTrainer(bot)
-# trainer.train(['what is your name?', 'My name is Python-BOT'])
-# trainer.train(['who are you?', 'I am a BOT'])
-# trainer = ChatterBotCorpusTrainer(bot)
-# trainer.train("chatterbot.corpus.english")
 
 @app.route("/")
 def index():    
@@ -205,13 +196,19 @@ def index():
 
 @app.route("/get")
 def get_bot_response():    
-	userPattern = 'her'    
-	print(userPattern)
-	text = 'heri hermawan dong' # "text" - thing we search in
+	userText = request.args.get('msg')    
+
+	questionAnswer = open("question-answer.txt", "r").read().replace("\n", "|").split('|')
+
+	t = questionAnswer # "text" - thing we search in
+	p = request.args.get('msg') # "pattern" - thing we search for
 	
-	p_bm = BoyerMoore(userPattern, alphabet='abcdefghijklmnopqrstuvwxyz')
-	boyer_moore(userPattern, p_bm, text)
+	p_bm = BoyerMoore(p, alphabet='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
 	
-	return str(bot.get_response(userPattern)) 
+	for index, item in enumerate(t):
+		result = boyer_moore(p, p_bm, item)
+		if len(result) != 0:
+			return str(t[index+1])		
+	 
 if __name__ == "__main__":    
 	app.run()
