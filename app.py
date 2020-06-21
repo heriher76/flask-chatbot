@@ -196,19 +196,23 @@ def index():
 
 @app.route("/get")
 def get_bot_response():    
-	userText = request.args.get('msg')    
+	pattern = request.args.get('msg') # "pattern" - thing we search for
+
+	if len(pattern) <= 1:
+		return str('Aku tidak mengerti :(')
 
 	questionAnswer = open("question-answer.txt", "r").read().replace("\n", "|").split('|')
-
-	t = questionAnswer # "text" - thing we search in
-	p = request.args.get('msg') # "pattern" - thing we search for
 	
-	p_bm = BoyerMoore(p, alphabet='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
+	p_bm = BoyerMoore(pattern, alphabet='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
 	
-	for index, item in enumerate(t):
-		result = boyer_moore(p, p_bm, item)
+	for index, item in enumerate(questionAnswer):
+		if index % 2 != 0 and index != 0:
+			continue
+		result = boyer_moore(pattern, p_bm, item)
 		if len(result) != 0:
-			return str(t[index+1])		
+			return str(questionAnswer[index+1])		
+	
+	return str('Aku tidak mengerti :(')
 	 
 if __name__ == "__main__":    
 	app.run()
