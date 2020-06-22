@@ -1,9 +1,8 @@
 #import files
 from flask import Flask, render_template, request
-from chatterbot import ChatBot
-from chatterbot.trainers import ChatterBotCorpusTrainer
-from chatterbot.trainers import ListTrainer
+from Sastrawi.StopWordRemover.StopWordRemoverFactory import StopWordRemoverFactory, StopWordRemover, ArrayDictionary
 import string
+import re
 
 class BoyerMoore(object):
     """ Encapsulates pattern and associated Boyer-Moore preprocessing. """
@@ -188,7 +187,18 @@ def boyer_moore(p, p_bm, t):
     return occurrences
 
 app = Flask(__name__)
-bot = ChatBot("Python-BOT")
+
+# the stopword by Sastrawi
+stop_factory = StopWordRemoverFactory().get_stop_words()
+
+more_stopword = []
+
+data = stop_factory + more_stopword
+ 
+dictionary = ArrayDictionary(data)
+
+stopword = StopWordRemover(dictionary)
+# end stopword
 
 @app.route("/")
 def index():    
@@ -196,14 +206,18 @@ def index():
 
 @app.route("/get")
 def get_bot_response():    
-	pattern = request.args.get('msg') # "pattern" - thing we search for
+	pattern = stopword.remove(request.args.get('msg').lower()) # "pattern" - thing we search for
+
+	pattern = re.sub('[!@#$`~%^&*()-_=+\.,;:|}{?/><]', '', pattern)
+
+	print(pattern)
 
 	if len(pattern) <= 1:
 		return str('Aku tidak mengerti :(')
 
 	questionAnswer = open("question-answer.txt", "r").read().replace("\n", "|").split('|')
 	
-	p_bm = BoyerMoore(pattern, alphabet='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
+	p_bm = BoyerMoore(pattern, alphabet='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ ')
 	
 	for index, item in enumerate(questionAnswer):
 		if index % 2 != 0 and index != 0:
