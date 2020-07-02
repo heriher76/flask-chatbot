@@ -3,6 +3,7 @@ from flask import Flask, render_template, request
 from Sastrawi.StopWordRemover.StopWordRemoverFactory import StopWordRemoverFactory, StopWordRemover, ArrayDictionary
 import string
 import re
+from nltk.corpus import wordnet as wn
 
 class BoyerMoore(object):
     """ Encapsulates pattern and associated Boyer-Moore preprocessing. """
@@ -202,31 +203,42 @@ stopword = StopWordRemover(dictionary)
 
 @app.route("/")
 def index():    
-	return render_template("index.html") 
+    return render_template("index.html") 
 
 @app.route("/get")
 def get_bot_response():    
-	pattern = stopword.remove(request.args.get('msg').lower()) # "pattern" - thing we search for
+    pattern = stopword.remove(request.args.get('msg').lower()) # "pattern" - thing we search for
 
-	pattern = re.sub('[!@#$`~%^&*()-_=+\.,;:|}{?/><]', '', pattern)
+    pattern = re.sub('[!@#$`~%^&*()-_=+\.,;:|}{?/><]', '', pattern) 
 
-	print(pattern)
+    if len(pattern) <= 2:
+        return str('Aku tidak mengerti :(')
 
-	if len(pattern) <= 1:
-		return str('Aku tidak mengerti :(')
-
-	questionAnswer = open("question-answer.txt", "r").read().replace("\n", "|").split('|')
-	
-	p_bm = BoyerMoore(pattern, alphabet='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ ')
-	
-	for index, item in enumerate(questionAnswer):
-		if index % 2 != 0 and index != 0:
-			continue
-		result = boyer_moore(pattern, p_bm, item)
-		if len(result) != 0:
-			return str(questionAnswer[index+1])		
-	
-	return str('Aku tidak mengerti :(')
-	 
+    questionAnswer = open("question-answer.txt", "r").read().replace("\n", "|").split('|')
+    
+    p_bm = BoyerMoore(pattern, alphabet='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ ')
+    
+    for index, item in enumerate(questionAnswer):
+        if index % 2 != 0 and index != 0:
+            continue
+        for i, word in enumerate(pattern.split()):
+            wordAsal = word
+            try:
+                arraySynonym = wn.synsets(word, lang='ind')[0].lemma_names('ind')
+            except IndexError:
+                continue
+            for j, synonym in enumerate(arraySynonym):
+                pattern = pattern.replace(word, synonym)
+                word = synonym
+                try:
+                    result = boyer_moore(pattern, p_bm, item)
+                    if len(result) != 0:
+                        return str(questionAnswer[index+1])
+                except AssertionError:
+                    continue
+            pattern = pattern.replace(word, wordAsal)
+    
+    return str('Aku tidak mengerti :(')
+     
 if __name__ == "__main__":    
-	app.run()
+    app.run()
