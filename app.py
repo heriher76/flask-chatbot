@@ -218,8 +218,7 @@ def get_bot_response():
     if len(pattern) <= 2:
         return str('Aku tidak mengerti :(')
 
-    questionAnswer = open("question-answer.txt", "r").read().replace("\n", "|").split('|')
-    
+    questionAnswer = open("question-answer.txt", "r", encoding="utf8").read().replace("\n", "|").split('|')
     p_bm = BoyerMoore(pattern, alphabet='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ ')
     
     for index, item in enumerate(questionAnswer):
@@ -229,17 +228,20 @@ def get_bot_response():
             wordAsal = word
             try:
                 arraySynonym = wn.synsets(word, lang='ind')[0].lemma_names('ind')
+                for j, synonym in enumerate(arraySynonym):
+                    pattern = pattern.replace(word, synonym)
+                    word = synonym
+                    try:
+                        result = boyer_moore(pattern, p_bm, item.lower())
+                        if len(result) != 0:
+                            return str(questionAnswer[index+1])
+                    except AssertionError:
+                        continue
             except IndexError:
-                continue
-            for j, synonym in enumerate(arraySynonym):
-                pattern = pattern.replace(word, synonym)
-                word = synonym
-                try:
-                    result = boyer_moore(pattern, p_bm, item)
-                    if len(result) != 0:
-                        return str(questionAnswer[index+1])
-                except AssertionError:
-                    continue
+                print('Tidak ada synonym')
+                result = boyer_moore(pattern, p_bm, item.lower())
+                if len(result) != 0:
+                    return str(questionAnswer[index+1])
             pattern = pattern.replace(word, wordAsal)
     
     return str('Aku tidak mengerti :(')
