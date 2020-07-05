@@ -4,6 +4,7 @@ from Sastrawi.StopWordRemover.StopWordRemoverFactory import StopWordRemoverFacto
 import string
 import re
 from nltk.corpus import wordnet as wn
+from flask_cors import CORS, cross_origin
 
 class BoyerMoore(object):
     """ Encapsulates pattern and associated Boyer-Moore preprocessing. """
@@ -188,6 +189,8 @@ def boyer_moore(p, p_bm, t):
     return occurrences
 
 app = Flask(__name__)
+cors = CORS(app)
+app.config['CORS_HEADERS'] = 'Content-Type'
 
 # the stopword by Sastrawi
 stop_factory = StopWordRemoverFactory().get_stop_words()
@@ -206,6 +209,7 @@ def index():
     return render_template("index.html") 
 
 @app.route("/get")
+@cross_origin()
 def get_bot_response():    
     pattern = stopword.remove(request.args.get('msg').lower()) # "pattern" - thing we search for
 
