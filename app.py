@@ -53,7 +53,7 @@ def z_array(s):
             z[1] += 1
         else:
             break
-    
+
     r, l = 0, 0
     if z[1] > 0:
         r, l = z[1], 1
@@ -166,89 +166,132 @@ def dense_bad_char_tab(p, amap):
         nxt[amap[c]] = i+1
     return tab
 
-
+# p = inputan, p_bm = preprocessing, t = text/pertanyaan
 def boyer_moore(p, p_bm, t):
     """ Do Boyer-Moore matching """
+    # i adalah untuk angka increment
     i = 0
+    # occurrences adalah hasil matching, nanti akan ada tandanya. [1,2,3]
     occurrences = []
     while i < len(t) - len(p) + 1:
+        # shift untuk increment per loop
         shift = 1
+        # mismatched adalah sebagai tanda jika tidak ada yg sama
         mismatched = False
+        # len(p)-1 adalah panjang pattern dikurangi 1 #-1 kedua adalah jika angka sudah dibawah 0 maka berhenti #-1 ketiga adalah nilai per loop nya berarti dikurangi 1
         for j in range(len(p)-1, -1, -1):
-            if p[j] != t[i+j]:
+            if p[j] != t[i+j]:# jika pattern huruf ke-j tidak sama dengan text huruf ke-i+j
+                # coba bad char rule
                 skip_bc = p_bm.bad_character_rule(j, t[i+j])
+                # coba good suffix rule
                 skip_gs = p_bm.good_suffix_rule(j)
+                # mencari angka / index terbesar dari bc/gs rule
                 shift = max(shift, skip_bc, skip_gs)
+                # huruf nya tidak cocok = true
                 mismatched = True
                 break
+        # jika matched
         if not mismatched:
+            # tambahkan angka index ke occurrences
             occurrences.append(i)
+            # skip character
             skip_gs = p_bm.match_skip()
+            # cari index yg terbesar
             shift = max(shift, skip_gs)
+        # incrementing (0+1)
         i += shift
+    # me return hasil matching
     return occurrences
 
 app = Flask(__name__)
+# untuk fix error cors
 cors = CORS(app)
 app.config['CORS_HEADERS'] = 'Content-Type'
 
 # the stopword by Sastrawi
 stop_factory = StopWordRemoverFactory().get_stop_words()
 
+# fitur tambah kata stopword
 more_stopword = []
 
+# proses merging kata stopword sastrawi dengan kata yg kita tambah
 data = stop_factory + more_stopword
- 
+
 dictionary = ArrayDictionary(data)
 
 stopword = StopWordRemover(dictionary)
 # end stopword
 
 @app.route("/")
-def index():    
-    return render_template("index.html") 
+def index():
+    return render_template("index.html")
 
 @app.route("/get")
 @cross_origin()
-def get_bot_response():    
+def get_bot_response():
+    # menghapus kata-kata yg tidak penting menggunakan stopword by Sastrawi
     pattern = stopword.remove(request.args.get('msg').lower()) # "pattern" - thing we search for
-    
-    pattern = re.sub("[!@#$`'’~%^&*()-_=+\.,;:|}{?/><]", '', pattern) 
-    
+
+    # menghilangkan simbol simbol di pertanyaan yg user input seperti tanda tanya, dll
+    pattern = re.sub("[!@#$`'’~%^&*()-_=+\.,;:|}{?/><]", '', pattern)
+
+    # jika user menginput hanya dua huruf atau kurang, maka langsung munculkan "Aku Tidak Mengerti"
     if len(pattern) <= 2:
         return str('Aku tidak mengerti :(')
 
+    # mengambil data pertanyaan dan jawaban di file txt question answer dan memisahkan antara pertanyaan dengan jawaban
     questionAnswer = open("question-answer.txt", "r", encoding="utf8").read().replace("\n", "|").split('|')
+
+    # membuat objek boyermoore
     p_bm = BoyerMoore(pattern, alphabet='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ ')
-    
+
+    # penyamaan string dari user input, kepada tiap tiap pertanyaan yg ada di txt questionAnswer
     for index, item in enumerate(questionAnswer):
+        # menghilangkan simbol simbol di pertanyaan yg ada di file txt seperti tanda tanya, dll
         item = stopword.remove(re.sub("[!@#$`'’~%^&*()-_=+\.,;:|}{?/><]", '', item.lower()))
+        # pertanyaan index nya ganjil, jawaban index nya genap. maka ketika index nya ganjil langsung di skip, karena tidak mungkin menyamakan dengan jawaban
         if index % 2 != 0 and index != 0:
             continue
+        # trial and error penyamaan string
         try:
-            print(questionAnswer[index])
+            # proses penyamaan menggunakan bc rule/ gs rule
             result = boyer_moore(pattern, p_bm, item)
+            # jika ternyata pertanyaan user input dan pertanyaan di txt ada yg sama, maka tampilkan jawaban. jawaban adalah index+1 posisinya
             if len(result) > 0:
                 return str(questionAnswer[index+1])
         except AssertionError:
+            # jika tidak ada yg sama, maka coba gunakan sinonim dari wordnet. untuk kemudian disamakan kembali dengan pertanyaan yg ada di txt
             for i, word in enumerate(pattern.split()):
+                # membuat patokan kata original yg user input
                 wordAsal = word
+                # trial and error
                 try:
+                    # cari sinonim ke wordnet, kata yg user input
                     arraySynonym = wn.synsets(word, lang='ind')[0].lemma_names('ind')
+                    # muncul banyak sinonim nya, lalu coba replace kata original nya dengan kata per sinonim. lalu lakukan penyamaan dengan pertanyaan yg ada di txt
                     for j, synonym in enumerate(arraySynonym):
+                        # me replace kata ori dengan sinonim
                         pattern = pattern.replace(word, synonym)
+                        # kata sinonim nya
                         word = synonym
+                        # trial and error
                         try:
+                            # membuat objek boyermoore
                             result = boyer_moore(pattern, p_bm, item)
+                            # jika ternyata pertanyaan user input dan pertanyaan di txt ada yg sama, maka tampilkan jawaban. jawaban adalah index+1 posisinya
                             if len(result) > 0:
                                 return str(questionAnswer[index+1])
                         except AssertionError:
+                            # jika ketika sudah direplace sinonim, tidak ada kesamaan dengan pertanyaan. maka lanjut ke sinonim berikutnya
                             continue
                 except IndexError:
+                    # jika tidak ada sinonim nya, seperti contoh "Assalamualaikum", maka skip dan cari sinonim kata selanjutnya
                     continue
+                # replace kembali kata sinonim ke kata ori nya
                 pattern = pattern.replace(word, wordAsal)
-                    
-    return str('Aku Tidak Mengerti :(')    
-     
-if __name__ == "__main__":    
+    # jika tidak ada kesamaan sama sekali, seperti contoh ngetik kata asal "lskajflaskdjflaskdjf"
+    return str('Aku Tidak Mengerti :(')
+
+# proses start aplikasi
+if __name__ == "__main__":
     app.run()
